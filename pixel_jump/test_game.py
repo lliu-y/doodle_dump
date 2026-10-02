@@ -56,6 +56,35 @@ class GameLogicTests(unittest.TestCase):
         self.assertGreater(self.game.clouds[0]["x"], start_positions[0])
         self.assertLess(self.game.clouds[1]["x"], start_positions[1])
 
+    def test_supplied_audio_files_load(self) -> None:
+        self.assertTrue(self.game.load_track.is_file())
+        self.assertTrue(self.game.game_track.is_file())
+        self.assertEqual(self.game.load_track.parent, self.game.game_track.parent)
+        self.assertEqual(self.game.load_track.parent.name, "audio")
+        self.assertGreater(self.game.bounce_sound.get_length(), 0)
+        self.assertGreater(self.game.pickup_sound.get_length(), 0)
+        self.assertGreater(self.game.death_sound.get_length(), 0)
+
+    def test_fall_plays_death_sound_and_stops_game_track(self) -> None:
+        self.game.state = "playing"
+        self.game.platforms = []
+        self.game.collectible = None
+        self.game.player.y = HEIGHT + 1
+        self.game.player_y = float(self.game.player.y)
+        self.game.velocity_y = 1.0
+        self.game.current_track = self.game.game_track
+
+        with patch.object(self.game, "play_sound") as play_sound:
+            self.game.update()
+
+        self.assertEqual(self.game.state, "over")
+        play_sound.assert_called_once_with(self.game.death_sound)
+        self.assertIsNone(self.game.current_track)
+
+    def test_end_screen_draws_restart_prompt(self) -> None:
+        self.game.state = "over"
+        self.game.draw()
+
     def test_all_five_characters_can_be_previewed_and_cycle(self) -> None:
         for expected_index in range(6):
             self.assertEqual(self.game.character_index, expected_index)
@@ -73,6 +102,7 @@ class GameLogicTests(unittest.TestCase):
 
         self.assertEqual(self.game.state, "playing")
         self.assertEqual(self.game.character_index, 1)
+        self.assertEqual(self.game.current_track, self.game.game_track)
         self.game.reset()
         self.assertEqual(self.game.character_index, 1)
 

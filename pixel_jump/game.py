@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import math
 import random
-import struct
 from pathlib import Path
 
 import pygame
@@ -24,6 +22,7 @@ GREEN = (104, 220, 126)
 YELLOW = (255, 211, 92)
 PINK = (249, 106, 142)
 ASSET_DIR = Path(__file__).resolve().parent / "assets"
+AUDIO_DIR = ASSET_DIR / "audio"
 CHARACTER_KEYS = (
     "player", "mario_type1", "mario_type2", "mario_type3", "mystery_player", "little_lizenian",
 )
@@ -35,38 +34,10 @@ CHARACTER_PREVIEW_KEYS = (
     "mystery_player_preview",
     "little_lizenian_preview",
 )
-CHARACTER_NAMES = ("小精灵", "马里奥 1", "马里奥 2", "马里奥 3", "神秘玩家", "小小李泽念")
+CHARACTER_NAMES = ("小精灵", "小马里奥", "中马里奥", "大马里奥", "神秘玩家", "小小李泽念")
 CHARACTER_PREV_RECT = pygame.Rect(110, 278, 64, 64)
 CHARACTER_NEXT_RECT = pygame.Rect(306, 278, 64, 64)
 START_BUTTON_RECT = pygame.Rect(100, 380, 280, 60)
-
-
-def make_tone(frequency: float, duration: float, volume: float = 0.18) -> pygame.mixer.Sound:
-    """用标准库合成短音效，不依赖外部音频素材。"""
-    sample_rate = 22050
-    count = int(sample_rate * duration)
-    samples = bytearray()
-    for i in range(count):
-        envelope = min(1.0, i / 180, (count - i) / 500)
-        value = int(32767 * volume * max(0, envelope) * math.sin(2 * math.pi * frequency * i / sample_rate))
-        samples.extend(struct.pack("<h", value))
-    return pygame.mixer.Sound(buffer=bytes(samples))
-
-
-def make_music() -> pygame.mixer.Sound:
-    """合成一段可循环的简易像素风旋律。"""
-    sample_rate = 22050
-    notes = [523, 659, 784, 659, 587, 698, 880, 698, 523, 659, 784, 1047, 880, 784, 659, 587]
-    note_length = 0.16
-    raw = bytearray()
-    for note in notes:
-        size = int(sample_rate * note_length)
-        for i in range(size):
-            # 每个音符做极短淡入淡出，循环播放时减少爆音。
-            edge = min(1.0, i / 220, (size - i) / 400)
-            wave_value = math.sin(2 * math.pi * note * i / sample_rate)
-            raw.extend(struct.pack("<h", int(32767 * 0.075 * max(0, edge) * wave_value)))
-    return pygame.mixer.Sound(buffer=bytes(raw))
 
 
 class Platform:
@@ -114,14 +85,32 @@ class Game:
         self.sound_on = True
         self.best_score = self.load_record()
         audio_available = pygame.mixer.get_init() is not None
-        self.bounce_sound = make_tone(740, 0.08) if audio_available else None
-        self.pickup_sound = make_tone(1040, 0.14) if audio_available else None
-        self.music = make_music() if audio_available else None
-        if self.music:
-            self.music.play(loops=-1)
+        self.bounce_sound = self._load_sound("small_jump.ogg") if audio_available else None
+        self.pickup_sound = self._load_sound("金币音效.ogg") if audio_available else None
+        self.death_sound = self._load_sound("死亡音效.wav") if audio_available else None
+        self.load_track = AUDIO_DIR / "游戏前加载音效.ogg"
+        self.game_track = AUDIO_DIR / "游戏音效.ogg"
+        self.current_track = None
         self.reset()
         # reset() 用于开新局；首次启动仍应停留在主菜单。
         self.state = "menu"
+        self.play_track(self.load_track)
+
+    @staticmethod
+    def _load_sound(filename: str) -> pygame.mixer.Sound:
+        """从 assets/audio 加载短音效。"""
+        return pygame.mixer.Sound(AUDIO_DIR / filename)
+
+    def play_track(self, path: Path) -> None:
+        """使用 Pygame 流式音乐播放器切换长音轨。"""
+        if not pygame.mixer.get_init() or not self.music_on or not path.exists():
+            return
+        if self.current_track == path:
+            return
+        pygame.mixer.music.load(str(path))
+        pygame.mixer.music.set_volume(0.35)
+        pygame.mixer.music.play(loops=-1 if path == self.game_track else 0)
+        self.current_track = path
 
     @staticmethod
     def _load_assets() -> dict[str, pygame.Surface]:
@@ -204,15 +193,21 @@ class Game:
 
     def play_sound(self, sound: pygame.mixer.Sound | None) -> None:
         if sound is not None and self.sound_on and pygame.mixer.get_init():
+            sound.set_volume(0.7)
             sound.play()
 
     def update_music(self) -> None:
-        if not pygame.mixer.get_init() or self.music is None:
+        if not pygame.mixer.get_init():
             return
-        if self.music_on and not pygame.mixer.get_busy():
-            self.music.play(loops=-1)
-        elif not self.music_on and pygame.mixer.get_busy():
-            pygame.mixer.stop()
+        if not self.music_on:
+            pygame.mixer.music.pause()
+        else:
+            pygame.mixer.music.unpause()
+            if self.current_track is None:
+                if self.state == "playing":
+                    self.play_track(self.game_track)
+                elif self.state == "menu":
+                    self.play_track(self.load_track)
 
     def update(self) -> None:
         if self.state != "playing":
@@ -270,6 +265,10 @@ class Game:
 
         if self.player.top > HEIGHT:
             self.state = "over"
+            if pygame.mixer.get_init():
+                pygame.mixer.music.stop()
+                self.current_track = None
+            self.play_sound(self.death_sound)
             if self.score > self.best_score:
                 self.best_score = self.score
                 self.save_record()
@@ -322,7 +321,7 @@ class Game:
             character_image = self.assets[CHARACTER_PREVIEW_KEYS[self.character_index]]
             self.screen.blit(character_image, character_image.get_rect(center=(WIDTH // 2, 310)))
             self.text(CHARACTER_NAMES[self.character_index], self.font, (WIDTH // 2, 360), YELLOW)
-            self.text("Enter 开始游戏", self.font, START_BUTTON_RECT.center, GREEN)
+            self.text("Enter 开始游戏", self.font, START_BUTTON_RECT.center, (35, 76, 120))
             self.text("← → 选择角色   M 音乐   N 音效", self.small_font, (WIDTH // 2, 475), (68, 105, 145))
             self.text("游戏中用 ← → 或 A / D 移动", self.small_font, (WIDTH // 2, 505), (68, 105, 145))
             self.text(f"历史最高分：{self.best_score}", self.small_font, (WIDTH // 2, 545), (68, 105, 145))
@@ -330,7 +329,7 @@ class Game:
             self.text("游戏结束", self.title_font, (WIDTH // 2, 240), PINK)
             self.text(f"本局得分：{self.score}", self.font, (WIDTH // 2, 320))
             self.text(f"历史最高分：{self.best_score}", self.font, (WIDTH // 2, 365), YELLOW)
-            self.text("按 Enter 或点击屏幕重新开始", self.font, (WIDTH // 2, 445), GREEN)
+            self.text("按 Enter 或点击屏幕重新开始", self.font, (WIDTH // 2, 445), (35, 76, 120))
             self.text("按 Esc 返回主菜单", self.small_font, (WIDTH // 2, 490), WHITE)
         pygame.display.flip()
 
@@ -355,6 +354,7 @@ class Game:
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         if self.state in ("menu", "over"):
                             self.reset()
+                            self.play_track(self.game_track)
                     elif event.key == pygame.K_ESCAPE and self.state == "over":
                         self.state = "menu"
                 elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -365,8 +365,10 @@ class Game:
                             self.cycle_character(1)
                         elif START_BUTTON_RECT.collidepoint(event.pos):
                             self.reset()
+                            self.play_track(self.game_track)
                     elif self.state == "over":
                         self.reset()
+                        self.play_track(self.game_track)
             self.update()
             self.draw()
         pygame.quit()
