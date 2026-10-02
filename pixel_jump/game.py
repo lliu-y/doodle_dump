@@ -13,18 +13,23 @@ import pygame
 WIDTH, HEIGHT = 480, 720
 FPS = 60
 PLAYER_SIZE = (28, 32)
-PLATFORM_SIZE = (68, 14)
 GRAVITY = 0.38
 BOUNCE_SPEED = -11.5
 MOVE_SPEED = 5.0
 PLATFORM_GAP = 82
 SAVE_FILE = Path.home() / ".pixel_jump_record.json"
 
-SKY = (20, 28, 52)
 WHITE = (240, 244, 220)
 GREEN = (104, 220, 126)
 YELLOW = (255, 211, 92)
 PINK = (249, 106, 142)
+ASSET_DIR = Path(__file__).resolve().parent / "assets"
+CHARACTER_KEYS = ("player", "mario")
+CHARACTER_PREVIEW_KEYS = ("player_preview", "mario_preview")
+CHARACTER_NAMES = ("小精灵", "马里奥")
+CHARACTER_PREV_RECT = pygame.Rect(110, 278, 64, 64)
+CHARACTER_NEXT_RECT = pygame.Rect(306, 278, 64, 64)
+START_BUTTON_RECT = pygame.Rect(100, 380, 280, 60)
 
 
 def make_tone(frequency: float, duration: float, volume: float = 0.18) -> pygame.mixer.Sound:
@@ -58,9 +63,9 @@ def make_music() -> pygame.mixer.Sound:
 class Platform:
     """可踩踏的平台，位置使用世界坐标。"""
 
-    def __init__(self, x: float, y: float, color: tuple[int, int, int] = GREEN):
-        self.rect = pygame.Rect(round(x), round(y), *PLATFORM_SIZE)
-        self.color = color
+    def __init__(self, x: float, y: float, image: pygame.Surface):
+        self.image = image
+        self.rect = pygame.Rect(round(x), round(y), *image.get_size())
 
     def screen_rect(self, camera_y: float) -> pygame.Rect:
         """把世界坐标转换为屏幕坐标；镜头上移时，平台在屏幕上向下移动。"""
@@ -68,11 +73,7 @@ class Platform:
 
     def draw(self, surface: pygame.Surface, camera_y: float) -> None:
         rect = self.screen_rect(camera_y)
-        pygame.draw.rect(surface, (15, 20, 38), rect.move(0, 4))
-        pygame.draw.rect(surface, self.color, rect)
-        pygame.draw.rect(surface, (195, 255, 178), (rect.x, rect.y, rect.width, 4))
-        for x in range(rect.x + 8, rect.right - 4, 16):
-            pygame.draw.rect(surface, (65, 151, 104), (x, rect.y + 7, 7, 3))
+        surface.blit(self.image, rect)
 
 
 class Game:
@@ -86,11 +87,19 @@ class Game:
             # 没有可用音频设备时仍允许游戏运行。
             pass
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.assets = self._load_assets()
         pygame.display.set_caption("像素弹跳 - Pixel Jump")
         self.clock = pygame.time.Clock()
         self.font = self._font(22)
         self.small_font = self._font(16)
         self.title_font = self._font(42)
+        self.character_index = 0
+        self.clouds = [
+            {"image": self.assets["cloud"], "x": -30.0, "y": 72, "speed": 0.45},
+            {"image": self.assets["cloud_small"], "x": 310.0, "y": 42, "speed": -0.32},
+            {"image": self.assets["cloud_small"], "x": 35.0, "y": 575, "speed": 0.26},
+            {"image": self.assets["cloud"], "x": 400.0, "y": 625, "speed": -0.38},
+        ]
         self.state = "menu"
         self.music_on = True
         self.sound_on = True
@@ -104,6 +113,26 @@ class Game:
         self.reset()
         # reset() 用于开新局；首次启动仍应停留在主菜单。
         self.state = "menu"
+
+    @staticmethod
+    def _load_assets() -> dict[str, pygame.Surface]:
+        """从 assets 目录加载所有游戏图片，不在运行时绘制图像素材。"""
+        filenames = {
+            "background": "background.png",
+            "cloud": "cloud.png",
+            "cloud_small": "cloud_small.png",
+            "player": "player.png",
+            "mario": "mario.png",
+            "player_preview": "player_preview.png",
+            "mario_preview": "mario_preview.png",
+            "platform": "platform.png",
+            "coin": "coin.png",
+        }
+        assets = {}
+        for key, filename in filenames.items():
+            image = pygame.image.load(ASSET_DIR / filename)
+            assets[key] = image.convert() if key == "background" else image.convert_alpha()
+        return assets
 
     @staticmethod
     def _font(size: int) -> pygame.font.Font:
@@ -137,14 +166,20 @@ class Game:
         self.camera_y = 0.0
         self.max_height = 0.0
         self.score_bonus = 0
-        self.platforms = [Platform(WIDTH // 2 - 34, HEIGHT - 105)]
+        self.platforms = [Platform(WIDTH // 2 - 34, HEIGHT - 105, self.assets["platform"])]
         y = HEIGHT - 190
         while y > -300:
-            self.platforms.append(Platform(random.randint(20, WIDTH - 88), y))
+            self.platforms.append(Platform(random.randint(20, WIDTH - 88), y, self.assets["platform"]))
             y -= PLATFORM_GAP
         # 道具只增加分数，一局一个，便于初学者理解和实现。
-        self.collectible = pygame.Rect(random.randint(40, WIDTH - 56), HEIGHT - 350, 16, 16)
+        self.collectible = self.assets["coin"].get_rect(
+            topleft=(random.randint(40, WIDTH - 56), HEIGHT - 350)
+        )
         self.state = "playing"
+
+    def cycle_character(self, direction: int) -> None:
+        """在开始前循环选择当前精灵或马里奥。"""
+        self.character_index = (self.character_index + direction) % len(CHARACTER_KEYS)
 
     @property
     def score(self) -> int:
@@ -207,7 +242,7 @@ class Game:
         self.platforms = [p for p in self.platforms if p.screen_rect(self.camera_y).y < HEIGHT + 40]
         while min((p.screen_rect(self.camera_y).y for p in self.platforms), default=HEIGHT) > -100:
             top_y = min((p.rect.y for p in self.platforms), default=self.camera_y) - PLATFORM_GAP
-            self.platforms.append(Platform(random.randint(16, WIDTH - 84), top_y))
+            self.platforms.append(Platform(random.randint(16, WIDTH - 84), top_y, self.assets["platform"]))
 
         if self.collectible:
             item_screen = self.collectible.move(0, round(self.camera_y))
@@ -222,36 +257,30 @@ class Game:
                 self.best_score = self.score
                 self.save_record()
 
+    def update_clouds(self) -> None:
+        """让云层缓慢左右循环移动。"""
+        for cloud in self.clouds:
+            cloud["x"] += cloud["speed"]
+            width = cloud["image"].get_width()
+            if cloud["speed"] > 0 and cloud["x"] > WIDTH:
+                cloud["x"] = -width
+            elif cloud["speed"] < 0 and cloud["x"] + width < 0:
+                cloud["x"] = WIDTH
+
     def draw_background(self) -> None:
-        self.screen.fill(SKY)
-        # 离散像素星点随高度轻微视差移动，作为轻量背景装饰。
-        for i in range(42):
-            x = (i * 97 + 31) % WIDTH
-            y = (i * 137 - int(self.camera_y * 0.18)) % HEIGHT
-            pygame.draw.rect(self.screen, (49, 66, 94), (x, y, 3, 3))
-        pygame.draw.rect(self.screen, (28, 39, 67), (0, HEIGHT - 22, WIDTH, 22))
+        self.screen.blit(self.assets["background"], (0, 0))
+        for cloud in self.clouds:
+            self.screen.blit(cloud["image"], (round(cloud["x"]), cloud["y"]))
 
     def draw_player(self) -> None:
-        """用矩形像素块绘制精灵，避免外部图片素材依赖。"""
-        x, y = self.player.x, self.player.y
-        # 小精灵主体与像素五官。
-        pygame.draw.rect(self.screen, (21, 25, 42), (x + 4, y + 2, 20, 27))
-        pygame.draw.rect(self.screen, (255, 211, 92), (x + 4, y + 5, 20, 19))
-        pygame.draw.rect(self.screen, (255, 239, 164), (x + 8, y, 12, 7))
-        pygame.draw.rect(self.screen, (245, 125, 102), (x, y + 12, 7, 11))
-        pygame.draw.rect(self.screen, (245, 125, 102), (x + 21, y + 12, 7, 11))
-        pygame.draw.rect(self.screen, (49, 55, 79), (x + 9, y + 12, 3, 4))
-        pygame.draw.rect(self.screen, (49, 55, 79), (x + 17, y + 12, 3, 4))
-        pygame.draw.rect(self.screen, (121, 220, 136), (x + 5, y + 24, 8, 6))
-        pygame.draw.rect(self.screen, (121, 220, 136), (x + 16, y + 24, 8, 6))
+        """绘制已加载的小精灵图片。"""
+        self.screen.blit(self.assets[CHARACTER_KEYS[self.character_index]], self.player)
 
     def draw_collectible(self) -> None:
         if not self.collectible:
             return
         item = self.collectible.move(0, round(self.camera_y))
-        pygame.draw.rect(self.screen, (115, 72, 34), item.inflate(8, 8))
-        pygame.draw.rect(self.screen, YELLOW, item)
-        pygame.draw.rect(self.screen, WHITE, (item.x + 4, item.y + 4, 4, 4))
+        self.screen.blit(self.assets["coin"], item)
 
     def text(self, value: str, font: pygame.font.Font, center: tuple[int, int], color=WHITE) -> None:
         image = font.render(value, True, color)
@@ -268,12 +297,18 @@ class Game:
             self.text(f"最高 {self.best_score}", self.small_font, (WIDTH - 65, 30))
             self.text("← → / A D 移动   M 音乐   N 音效", self.small_font, (WIDTH // 2, HEIGHT - 12), (175, 190, 207))
         elif self.state == "menu":
-            self.text("像素弹跳", self.title_font, (WIDTH // 2, 210), YELLOW)
-            self.text("踩住平台，向上跳得更高！", self.font, (WIDTH // 2, 275))
-            self.draw_player()
-            self.text("按 Enter 或点击屏幕开始", self.font, (WIDTH // 2, 420), GREEN)
-            self.text("← → / A D 移动   M 音乐   N 音效", self.small_font, (WIDTH // 2, 470), (175, 190, 207))
-            self.text(f"历史最高分：{self.best_score}", self.small_font, (WIDTH // 2, 520))
+            self.text("像素弹跳", self.title_font, (WIDTH // 2, 145), YELLOW)
+            self.text("踩住平台，向上跳得更高！", self.font, (WIDTH // 2, 205))
+            self.text("选择角色", self.small_font, (WIDTH // 2, 260))
+            self.text("‹", self.title_font, CHARACTER_PREV_RECT.center, WHITE)
+            self.text("›", self.title_font, CHARACTER_NEXT_RECT.center, WHITE)
+            character_image = self.assets[CHARACTER_PREVIEW_KEYS[self.character_index]]
+            self.screen.blit(character_image, character_image.get_rect(center=(WIDTH // 2, 310)))
+            self.text(CHARACTER_NAMES[self.character_index], self.font, (WIDTH // 2, 360), YELLOW)
+            self.text("Enter 开始游戏", self.font, START_BUTTON_RECT.center, GREEN)
+            self.text("← → 选择角色   M 音乐   N 音效", self.small_font, (WIDTH // 2, 475), (68, 105, 145))
+            self.text("游戏中用 ← → 或 A / D 移动", self.small_font, (WIDTH // 2, 505), (68, 105, 145))
+            self.text(f"历史最高分：{self.best_score}", self.small_font, (WIDTH // 2, 545), (68, 105, 145))
         else:
             self.text("游戏结束", self.title_font, (WIDTH // 2, 240), PINK)
             self.text(f"本局得分：{self.score}", self.font, (WIDTH // 2, 320))
@@ -286,6 +321,7 @@ class Game:
         running = True
         while running:
             self.clock.tick(FPS)
+            self.update_clouds()
             self.update_music()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -295,13 +331,25 @@ class Game:
                         self.music_on = not self.music_on
                     elif event.key == pygame.K_n:
                         self.sound_on = not self.sound_on
+                    elif self.state == "menu" and event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.cycle_character(-1)
+                    elif self.state == "menu" and event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.cycle_character(1)
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         if self.state in ("menu", "over"):
                             self.reset()
                     elif event.key == pygame.K_ESCAPE and self.state == "over":
                         self.state = "menu"
-                elif event.type == pygame.MOUSEBUTTONDOWN and self.state in ("menu", "over"):
-                    self.reset()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.state == "menu":
+                        if CHARACTER_PREV_RECT.collidepoint(event.pos):
+                            self.cycle_character(-1)
+                        elif CHARACTER_NEXT_RECT.collidepoint(event.pos):
+                            self.cycle_character(1)
+                        elif START_BUTTON_RECT.collidepoint(event.pos):
+                            self.reset()
+                    elif self.state == "over":
+                        self.reset()
             self.update()
             self.draw()
         pygame.quit()

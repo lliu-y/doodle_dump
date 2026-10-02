@@ -24,19 +24,50 @@ class GameLogicTests(unittest.TestCase):
 
     def test_game_opens_on_menu(self) -> None:
         self.assertEqual(self.game.state, "menu")
+        self.game.draw()
 
-    def test_enter_starts_from_menu(self) -> None:
+    def test_all_image_assets_load_and_clouds_move_both_ways(self) -> None:
+        self.assertEqual(
+            set(self.game.assets),
+            {
+                "background", "cloud", "cloud_small", "player", "mario",
+                "player_preview", "mario_preview", "platform", "coin",
+            },
+        )
+        start_positions = [cloud["x"] for cloud in self.game.clouds]
+
+        self.game.update_clouds()
+
+        self.assertGreater(self.game.clouds[0]["x"], start_positions[0])
+        self.assertLess(self.game.clouds[1]["x"], start_positions[1])
+
+    def test_keyboard_selects_character_and_starts_game(self) -> None:
         pygame.event.clear()
+        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RIGHT))
         pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
         pygame.event.post(pygame.event.Event(pygame.QUIT))
 
         self.game.run()
 
         self.assertEqual(self.game.state, "playing")
+        self.assertEqual(self.game.character_index, 1)
+        self.game.reset()
+        self.assertEqual(self.game.character_index, 1)
+
+    def test_menu_arrow_click_selects_mario(self) -> None:
+        pygame.event.clear()
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(338, 310), button=1))
+        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+        pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+        self.game.run()
+
+        self.assertEqual(self.game.character_index, 1)
+        self.assertEqual(self.game.state, "playing")
 
     def test_landing_from_above_triggers_one_bounce(self) -> None:
         self.game.state = "playing"
-        platform = Platform(100, 300)
+        platform = Platform(100, 300, self.game.assets["platform"])
         self.game.platforms = [platform]
         self.game.collectible = None
         self.game.player.x = 110
@@ -52,7 +83,7 @@ class GameLogicTests(unittest.TestCase):
     def test_landing_position_uses_scrolled_screen_coordinates(self) -> None:
         self.game.state = "playing"
         self.game.camera_y = 50
-        platform = Platform(100, 300)
+        platform = Platform(100, 300, self.game.assets["platform"])
         self.game.platforms = [platform]
         self.game.collectible = None
         self.game.player.x = 110
@@ -67,7 +98,7 @@ class GameLogicTests(unittest.TestCase):
 
     def test_rising_through_platform_does_not_bounce(self) -> None:
         self.game.state = "playing"
-        self.game.platforms = [Platform(100, 300)]
+        self.game.platforms = [Platform(100, 300, self.game.assets["platform"])]
         self.game.collectible = None
         self.game.player.x = 110
         self.game.player_y = 310.0
@@ -80,7 +111,7 @@ class GameLogicTests(unittest.TestCase):
 
     def test_camera_moves_platforms_down_and_height_increases(self) -> None:
         self.game.state = "playing"
-        platform = Platform(100, 300)
+        platform = Platform(100, 300, self.game.assets["platform"])
         self.game.platforms = [platform]
         self.game.collectible = None
         self.game.player_y = 260.0

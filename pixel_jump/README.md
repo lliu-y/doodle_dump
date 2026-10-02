@@ -2,6 +2,8 @@
 
 一个面向 Python 初学者的 Pygame 自动弹跳平台小游戏。所有图形和声音都由程序生成，不需要下载素材。
 
+游戏图片保存在 `assets/` 中，运行时从 PNG 文件加载；云层会在蓝天背景上缓慢左右循环移动。开始前可用左右键或菜单箭头选择小精灵或马里奥。需要重新生成这些 PNG 时运行 `python pixel_jump/tools/generate_assets.py`。
+
 ## 运行
 
 ```powershell
