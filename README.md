@@ -9,22 +9,22 @@
 ## 运行
 
 ```powershell
-python -m pip install pygame
-python -m pixel_jump
+python -m pip install -r requirements.txt
+python main.py
 ```
 
-请在项目根目录运行第二条命令。
+请在仓库根目录运行游戏。
 
 ## 代码结构
 
-- `__main__.py`：命令行模块入口，保留 `python -m pixel_jump` 启动方式。
+- `main.py`：游戏启动入口，运行 `python main.py` 启动游戏。
 - `config.py`：窗口、物理、角色、素材路径和界面位置等固定配置。
 - `assets.py`：集中加载 PNG 图片；加载后的图片由整个游戏重复使用。
 - `audio.py`：加载并播放跳跃、金币、死亡音效和背景音轨。
 - `entities.py`：平台、云朵和金币等游戏对象及其坐标转换。
 - `records.py`：读取和保存本机最高分。
 - `ui.py`：字体、背景、角色预览、游戏中 HUD 和结束画面绘制。
-- `game.py`：游戏状态、输入事件、碰撞和主循环协调器。
+- `game.py`：游戏状态、输入事件、碰撞和主循环协调器，由 `main.py` 调用。
 
 ## 操作
 

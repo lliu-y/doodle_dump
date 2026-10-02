@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from .config import SAVE_FILE
+from config import SAVE_FILE
 
 
 def load_best_score(path: Path = SAVE_FILE) -> int:

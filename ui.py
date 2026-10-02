@@ -5,7 +5,7 @@ from typing import Mapping
 
 import pygame
 
-from .config import (
+from config import (
     CHARACTER_KEYS,
     CHARACTER_NAMES,
     CHARACTER_PREVIEW_KEYS,
@@ -21,7 +21,7 @@ from .config import (
     WIDTH,
     YELLOW,
 )
-from .entities import Cloud, Collectible, Platform
+from entities import Cloud, Collectible, Platform
 
 
 @dataclass(frozen=True)

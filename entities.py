@@ -2,7 +2,7 @@
 
 import pygame
 
-from .config import WIDTH
+from config import WIDTH
 
 
 class Platform:

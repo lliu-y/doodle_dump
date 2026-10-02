@@ -6,9 +6,9 @@ import random
 
 import pygame
 
-from .assets import load_images
-from .audio import AudioManager
-from .config import (
+from assets import load_images
+from audio import AudioManager
+from config import (
     AUDIO_DIR,
     BOUNCE_SPEED,
     CHARACTER_KEYS,
@@ -23,9 +23,9 @@ from .config import (
     START_BUTTON_RECT,
     WIDTH,
 )
-from .entities import Cloud, Collectible, Platform
-from .records import load_best_score, save_best_score
-from .ui import GameView, UserInterface
+from entities import Cloud, Collectible, Platform
+from records import load_best_score, save_best_score
+from ui import GameView, UserInterface
 
 
 class Game:
@@ -267,7 +267,7 @@ class Game:
 
 
 def main() -> None:
-    """保持 `python -m pixel_jump` 使用的启动入口。"""
+    """创建游戏并运行主循环。"""
     Game().run()
 
 

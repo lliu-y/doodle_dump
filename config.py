@@ -13,8 +13,8 @@ BOUNCE_SPEED = -11.5
 MOVE_SPEED = 5.0
 PLATFORM_GAP = 82
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-ASSET_DIR = PACKAGE_DIR / "assets"
+PROJECT_DIR = Path(__file__).resolve().parent
+ASSET_DIR = PROJECT_DIR / "assets"
 AUDIO_DIR = ASSET_DIR / "audio"
 SAVE_FILE = Path.home() / ".pixel_jump_record.json"
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pygame
 
-from .config import AUDIO_DIR
+from config import AUDIO_DIR
 
 
 class AudioManager:

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pygame
 
-from .config import ASSET_DIR, CHARACTER_KEYS, CHARACTER_PREVIEW_KEYS
+from config import ASSET_DIR, CHARACTER_KEYS, CHARACTER_PREVIEW_KEYS
 
 IMAGE_FILES = {
     "background": "background.png",
