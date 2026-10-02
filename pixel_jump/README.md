@@ -11,6 +11,12 @@ python -m pixel_jump
 
 请在项目根目录运行第二条命令。
 
+## 测试
+
+```powershell
+python -m unittest pixel_jump.test_game
+```
+
 ## 操作
 
 - `←` / `→` 或 `A` / `D`：左右移动

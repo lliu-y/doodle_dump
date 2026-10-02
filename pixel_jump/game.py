@@ -62,8 +62,12 @@ class Platform:
         self.rect = pygame.Rect(round(x), round(y), *PLATFORM_SIZE)
         self.color = color
 
+    def screen_rect(self, camera_y: float) -> pygame.Rect:
+        """把世界坐标转换为屏幕坐标；镜头上移时，平台在屏幕上向下移动。"""
+        return self.rect.move(0, round(camera_y))
+
     def draw(self, surface: pygame.Surface, camera_y: float) -> None:
-        rect = self.rect.move(0, -round(camera_y))
+        rect = self.screen_rect(camera_y)
         pygame.draw.rect(surface, (15, 20, 38), rect.move(0, 4))
         pygame.draw.rect(surface, self.color, rect)
         pygame.draw.rect(surface, (195, 255, 178), (rect.x, rect.y, rect.width, 4))
@@ -91,12 +95,15 @@ class Game:
         self.music_on = True
         self.sound_on = True
         self.best_score = self.load_record()
-        self.bounce_sound = make_tone(740, 0.08)
-        self.pickup_sound = make_tone(1040, 0.14)
-        self.music = make_music()
-        if pygame.mixer.get_init():
+        audio_available = pygame.mixer.get_init() is not None
+        self.bounce_sound = make_tone(740, 0.08) if audio_available else None
+        self.pickup_sound = make_tone(1040, 0.14) if audio_available else None
+        self.music = make_music() if audio_available else None
+        if self.music:
             self.music.play(loops=-1)
         self.reset()
+        # reset() 用于开新局；首次启动仍应停留在主菜单。
+        self.state = "menu"
 
     @staticmethod
     def _font(size: int) -> pygame.font.Font:
@@ -125,6 +132,7 @@ class Game:
         """开始新一局，保留最高纪录和音量开关。"""
         self.player = pygame.Rect(WIDTH // 2 - PLAYER_SIZE[0] // 2, HEIGHT - 150, *PLAYER_SIZE)
         self.player_y = float(self.player.y)
+        self.start_y = self.player_y
         self.velocity_y = BOUNCE_SPEED
         self.camera_y = 0.0
         self.max_height = 0.0
@@ -142,12 +150,12 @@ class Game:
     def score(self) -> int:
         return int(self.max_height // 10) + self.score_bonus
 
-    def play_sound(self, sound: pygame.mixer.Sound) -> None:
-        if self.sound_on and pygame.mixer.get_init():
+    def play_sound(self, sound: pygame.mixer.Sound | None) -> None:
+        if sound is not None and self.sound_on and pygame.mixer.get_init():
             sound.play()
 
     def update_music(self) -> None:
-        if not pygame.mixer.get_init():
+        if not pygame.mixer.get_init() or self.music is None:
             return
         if self.music_on and not pygame.mixer.get_busy():
             self.music.play(loops=-1)
@@ -174,11 +182,11 @@ class Game:
         # 只允许从平台上方下落时触发弹跳。
         if self.velocity_y > 0:
             for platform in self.platforms:
-                screen_y = platform.rect.y - self.camera_y
+                screen_y = platform.screen_rect(self.camera_y).y
                 if (previous_bottom <= screen_y + 3 and self.player.bottom >= screen_y
                         and self.player.right > platform.rect.left
                         and self.player.left < platform.rect.right):
-                    self.player_y = float(platform.rect.top - PLAYER_SIZE[1])
+                    self.player_y = float(screen_y - PLAYER_SIZE[1])
                     self.player.y = round(self.player_y)
                     self.velocity_y = BOUNCE_SPEED
                     self.play_sound(self.bounce_sound)
@@ -190,16 +198,19 @@ class Game:
             self.camera_y += shift
             self.player_y += shift
             self.player.y = round(self.player_y)
-            self.max_height += shift
+
+        # 世界坐标 = 屏幕坐标 - 镜头偏移；以开局位置为高度零点。
+        current_height = self.start_y - self.player_y + self.camera_y
+        self.max_height = max(self.max_height, current_height)
 
         # 持续在顶部补充普通平台，并回收离开画面的平台。
-        self.platforms = [p for p in self.platforms if p.rect.y - self.camera_y < HEIGHT + 40]
-        while min((p.rect.y - self.camera_y for p in self.platforms), default=HEIGHT) > -100:
+        self.platforms = [p for p in self.platforms if p.screen_rect(self.camera_y).y < HEIGHT + 40]
+        while min((p.screen_rect(self.camera_y).y for p in self.platforms), default=HEIGHT) > -100:
             top_y = min((p.rect.y for p in self.platforms), default=self.camera_y) - PLATFORM_GAP
             self.platforms.append(Platform(random.randint(16, WIDTH - 84), top_y))
 
         if self.collectible:
-            item_screen = self.collectible.move(0, -round(self.camera_y))
+            item_screen = self.collectible.move(0, round(self.camera_y))
             if self.player.colliderect(item_screen):
                 self.collectible = None
                 self.score_bonus += 100
@@ -237,7 +248,7 @@ class Game:
     def draw_collectible(self) -> None:
         if not self.collectible:
             return
-        item = self.collectible.move(0, -round(self.camera_y))
+        item = self.collectible.move(0, round(self.camera_y))
         pygame.draw.rect(self.screen, (115, 72, 34), item.inflate(8, 8))
         pygame.draw.rect(self.screen, YELLOW, item)
         pygame.draw.rect(self.screen, WHITE, (item.x + 4, item.y + 4, 4, 4))
