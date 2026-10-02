@@ -33,16 +33,19 @@ class GameLogicTests(unittest.TestCase):
                 "background", "cloud", "cloud_small", "player", "player_preview",
                 "mario_type1", "mario_type1_preview", "mario_type2", "mario_type2_preview",
                 "mario_type3", "mario_type3_preview", "mystery_player", "mystery_player_preview",
+                "little_lizenian", "little_lizenian_preview",
                 "platform", "coin",
             },
         )
-        for key in ("player", "mario_type1", "mario_type2", "mario_type3", "mystery_player"):
+        for key in (
+            "player", "mario_type1", "mario_type2", "mario_type3", "mystery_player", "little_lizenian",
+        ):
             self.assertEqual(self.game.assets[key].get_size(), (28, 32))
             self.assertTrue(self.game.assets[key].get_flags() & pygame.SRCALPHA)
             self.assertEqual(self.game.assets[key].get_at((0, 0)).a, 0)
         for key in (
             "player_preview", "mario_type1_preview", "mario_type2_preview",
-            "mario_type3_preview", "mystery_player_preview",
+            "mario_type3_preview", "mystery_player_preview", "little_lizenian_preview",
         ):
             self.assertEqual(self.game.assets[key].get_size(), (56, 64))
         self.assertEqual(self.game.assets["coin"].get_size(), (16, 16))
@@ -54,7 +57,7 @@ class GameLogicTests(unittest.TestCase):
         self.assertLess(self.game.clouds[1]["x"], start_positions[1])
 
     def test_all_five_characters_can_be_previewed_and_cycle(self) -> None:
-        for expected_index in range(5):
+        for expected_index in range(6):
             self.assertEqual(self.game.character_index, expected_index)
             self.game.draw()
             self.game.cycle_character(1)

@@ -24,12 +24,12 @@ def trim_alpha(image: Image.Image) -> Image.Image:
     return image.crop(bbox)
 
 
-def fit_sprite(image: Image.Image) -> Image.Image:
+def fit_sprite(image: Image.Image, resampling: Image.Resampling = Image.Resampling.NEAREST) -> Image.Image:
     """将角色等比例放入统一游戏画布，脚底对齐。"""
     image = trim_alpha(image)
     scale = min(26 / image.width, 30 / image.height)
     size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-    image = image.resize(size, Image.Resampling.NEAREST)
+    image = image.resize(size, resampling)
     canvas = Image.new("RGBA", GAME_SIZE, (0, 0, 0, 0))
     canvas.alpha_composite(image, ((GAME_SIZE[0] - image.width) // 2, GAME_SIZE[1] - image.height))
     return canvas
@@ -91,8 +91,12 @@ def main() -> None:
     mystery_source = next(ASSETS.glob("神秘玩家.png"))
     save_character("mystery_player", make_mystery_sprite(mystery_source))
 
+    lizenian_source = next(ASSETS.glob("小小李泽念.png"))
+    lizenian = fit_sprite(Image.open(lizenian_source), Image.Resampling.LANCZOS)
+    save_character("little_lizenian", lizenian)
+
     print("金币: 16x16")
-    for name in ("mario_type1", "mario_type2", "mario_type3", "mystery_player"):
+    for name in ("mario_type1", "mario_type2", "mario_type3", "mystery_player", "little_lizenian"):
         game_image = Image.open(ASSETS / f"{name}.png")
         preview = Image.open(ASSETS / f"{name}_preview.png")
         print(f"{name}: game={game_image.size}, preview={preview.size}")
