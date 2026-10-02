@@ -2,7 +2,7 @@
 
 一个面向 Python 初学者的 Pygame 自动弹跳平台小游戏。所有图形和声音都由程序生成，不需要下载素材。
 
-游戏图片保存在 `assets/` 中，运行时从 PNG 文件加载；云层会在蓝天背景上缓慢左右循环移动。开始前可用左右键或菜单箭头选择小精灵或马里奥。需要重新生成这些 PNG 时运行 `python pixel_jump/tools/generate_assets.py`。
+游戏图片保存在 `assets/` 中，运行时从 PNG 文件加载；云层会在蓝天背景上缓慢左右循环移动。开始前可用左右键或菜单箭头在小精灵、三种马里奥和神秘玩家之间切换。`process_character_assets.py` 用于重新处理 `resource/img/` 下的金币、马里奥图集及角色源图；它需要 Pillow。
 
 ## 运行
 

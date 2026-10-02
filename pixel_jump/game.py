@@ -24,9 +24,15 @@ GREEN = (104, 220, 126)
 YELLOW = (255, 211, 92)
 PINK = (249, 106, 142)
 ASSET_DIR = Path(__file__).resolve().parent / "assets"
-CHARACTER_KEYS = ("player", "mario")
-CHARACTER_PREVIEW_KEYS = ("player_preview", "mario_preview")
-CHARACTER_NAMES = ("小精灵", "马里奥")
+CHARACTER_KEYS = ("player", "mario_type1", "mario_type2", "mario_type3", "mystery_player")
+CHARACTER_PREVIEW_KEYS = (
+    "player_preview",
+    "mario_type1_preview",
+    "mario_type2_preview",
+    "mario_type3_preview",
+    "mystery_player_preview",
+)
+CHARACTER_NAMES = ("小精灵", "马里奥 1", "马里奥 2", "马里奥 3", "神秘玩家")
 CHARACTER_PREV_RECT = pygame.Rect(110, 278, 64, 64)
 CHARACTER_NEXT_RECT = pygame.Rect(306, 278, 64, 64)
 START_BUTTON_RECT = pygame.Rect(100, 380, 280, 60)
@@ -122,9 +128,15 @@ class Game:
             "cloud": "cloud.png",
             "cloud_small": "cloud_small.png",
             "player": "player.png",
-            "mario": "mario.png",
+            "mario_type1": "mario_type1.png",
+            "mario_type2": "mario_type2.png",
+            "mario_type3": "mario_type3.png",
+            "mystery_player": "mystery_player.png",
             "player_preview": "player_preview.png",
-            "mario_preview": "mario_preview.png",
+            "mario_type1_preview": "mario_type1_preview.png",
+            "mario_type2_preview": "mario_type2_preview.png",
+            "mario_type3_preview": "mario_type3_preview.png",
+            "mystery_player_preview": "mystery_player_preview.png",
             "platform": "platform.png",
             "coin": "coin.png",
         }
@@ -178,7 +190,7 @@ class Game:
         self.state = "playing"
 
     def cycle_character(self, direction: int) -> None:
-        """在开始前循环选择当前精灵或马里奥。"""
+        """在开始前循环选择可用角色。"""
         self.character_index = (self.character_index + direction) % len(CHARACTER_KEYS)
 
     @property
