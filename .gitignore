@@ -1,6 +1,24 @@
+# Python caches and virtual environments
 __pycache__/
 *.py[cod]
 .venv/
 venv/
 .env
 .pytest_cache/
+
+# Build and release folders
+bin-debug/
+bin-release/
+[Oo]bj/
+[Bb]in/
+
+# Other project settings
+.settings/
+
+# Executables
+*.swf
+*.air
+*.ipa
+*.apk
+
+# Keep IDE project files that contain compiler settings.
